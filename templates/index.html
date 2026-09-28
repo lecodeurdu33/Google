@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Suivi SEO – Appl'IA</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>📈 Suivi SEO Appl'IA</h1>
+    <p class="subtitle">Positions • Historique • Alertes</p>
+  </header>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-container">
+        {% for category, message in messages %}
+          <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <!-- Alertes -->
+  {% if alerts %}
+  <section class="card alerts">
+    <h2>🔔 Alertes (Δ ≥ 2 places)</h2>
+    <ul>
+      {% for a in alerts %}
+      <li class="{{ a.type }}">
+        <strong>{{ a.keyword }}</strong> :
+        {{ a.previous }} → {{ a.current }}
+        <span class="delta">
+          {% if a.type == 'up' %}▲ +{{ a.delta }}{% else %}▼ {{ a.delta }}{% endif %}
+        </span>
+        <small>({{ a.date }})</small>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  <!-- Dernières positions -->
+  <section class="card">
+    <h2>Dernières positions</h2>
+    {% if latest %}
+    <table>
+      <thead>
+        <tr>
+          <th>Mot-clé</th>
+          <th>Position</th>
+          <th>Évolution</th>
+          <th>Date</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in latest %}
+        <tr>
+          <td><a href="{{ url_for('keyword_detail', keyword=row.keyword) }}">{{ row.keyword }}</a></td>
+          <td class="pos">{{ row.position or "–" }}</td>
+          <td class="delta">
+            {% if row.previous_position is not none and row.position is not none %}
+              {% set d = row.previous_position - row.position %}
+              {% if d > 0 %}
+                <span class="up">▲ +{{ d }}</span>
+              {% elif d < 0 %}
+                <span class="down">▼ {{ d }}</span>
+              {% else %}
+                <span class="stable">=</span>
+              {% endif %}
+            {% else %}
+              –
+            {% endif %}
+          </td>
+          <td>{{ row.date }}</td>
+          <td>
+            {% if row.url %}
+              <a href="{{ row.url }}" target="_blank" rel="noopener">↗</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="empty">Aucune donnée pour le moment. Ajoutez une position ci-dessous.</p>
+    {% endif %}
+  </section>
+
+  <div class="grid-2">
+    <!-- Ajouter une position -->
+    <section class="card">
+      <h2>Enregistrer une position</h2>
+      <form method="post" action="{{ url_for('add_position') }}">
+        <label>
+          Mot-clé
+          <input type="text" name="keyword" list="kw-list" required placeholder="ex: appl ia">
+        </label>
+        <datalist id="kw-list">
+          {% for k in keywords %}
+          <option value="{{ k.keyword }}">
+          {% endfor %}
+        </datalist>
+        <label>
+          Position (1-100)
+          <input type="number" name="position" min="1" max="100" required>
+        </label>
+        <label>
+          URL (optionnel)
+          <input type="url" name="url" placeholder="https://...">
+        </label>
+        <label>
+          Notes (optionnel)
+          <input type="text" name="notes">
+        </label>
+        <button type="submit">Enregistrer</button>
+      </form>
+    </section>
+
+    <!-- Ajouter un mot-clé à suivre -->
+    <section class="card">
+      <h2>Ajouter un mot-clé suivi</h2>
+      <form method="post" action="{{ url_for('add_keyword_route') }}">
+        <label>
+          Mot-clé
+          <input type="text" name="keyword" required>
+        </label>
+        <label>
+          URL cible (optionnel)
+          <input type="url" name="target_url" placeholder="https://appl-ia.fr/...">
+        </label>
+        <button type="submit">Ajouter</button>
+      </form>
+
+      {% if keywords %}
+      <h3>Mots-clés suivis</h3>
+      <ul class="kw-list">
+        {% for k in keywords %}
+        <li>
+          <a href="{{ url_for('keyword_detail', keyword=k.keyword) }}">{{ k.keyword }}</a>
+          {% if k.target_url %}<small>→ {{ k.target_url }}</small>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </section>
+  </div>
+
+  <footer>
+    <p>
+      Outil de suivi SEO – Données stockées localement (SQLite).<br>
+      Pour un usage pro : connectez l’API Google Search Console.
+    </p>
+  </footer>
+</body>
+</html>

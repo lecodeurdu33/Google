@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ keyword }} – Suivi SEO</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <header>
+    <p><a href="{{ url_for('dashboard') }}">← Retour au tableau de bord</a></p>
+    <h1>Mot-clé : « {{ keyword }} »</h1>
+  </header>
+
+  <section class="card">
+    <h2>Évolution des positions</h2>
+    {% if history %}
+    <canvas id="chart" height="120"></canvas>
+    <table class="mt">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Position</th>
+          <th>URL</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in history|reverse %}
+        <tr>
+          <td>{{ row.date }}</td>
+          <td class="pos">{{ row.position }}</td>
+          <td>
+            {% if row.url %}
+              <a href="{{ row.url }}" target="_blank" rel="noopener">{{ row.url }}</a>
+            {% else %}–{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="empty">Aucun historique pour ce mot-clé.</p>
+    {% endif %}
+  </section>
+
+  {% if history %}
+  <script>
+    const labels = {{ history|map(attribute='date')|list|tojson }};
+    const data = {{ history|map(attribute='position')|list|tojson }};
+
+    new Chart(document.getElementById('chart'), {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Position',
+          data: data,
+          borderColor: '#2563eb',
+          backgroundColor: 'rgba(37, 99, 235, 0.1)',
+          tension: 0.25,
+          fill: true,
+          pointRadius: 4,
+          pointHoverRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: {
+            reverse: true,   // position 1 en haut
+            min: 1,
+            title: { display: true, text: 'Position Google' }
+          },
+          x: {
+            title: { display: true, text: 'Date' }
+          }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => 'Position : ' + ctx.raw
+            }
+          }
+        }
+      }
+    });
+  </script>
+  {% endif %}
+</body>
+</html>
