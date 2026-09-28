@@ -244,6 +244,56 @@ def init_db_command():
     print("Base de données initialisée.")
 
 
+@app.cli.command("sync-gsc")
+def sync_gsc_command():
+    """
+    Synchronise les positions depuis Google Search Console.
+    Variables d'environnement :
+      GSC_SITE_URL          (obligatoire)  ex: https://appl-ia.fr/  ou  sc-domain:appl-ia.fr
+      GSC_CREDENTIALS       (optionnel)    chemin vers credentials.json (service account)
+      GSC_CLIENT_SECRETS    (optionnel)    chemin vers client_secrets.json (OAuth)
+      GSC_DAYS              (optionnel)    nombre de jours (défaut 7)
+      GSC_MIN_IMPRESSIONS   (optionnel)    seuil d'impressions (défaut 5)
+    """
+    import os
+    from gsc_client import GSCClient, sync_to_tracker
+
+    site_url = os.environ.get("GSC_SITE_URL")
+    if not site_url:
+        print("Erreur : définissez GSC_SITE_URL (ex: https://appl-ia.fr/)")
+        return
+
+    creds_path = os.environ.get("GSC_CREDENTIALS", "credentials.json")
+    client_secrets = os.environ.get("GSC_CLIENT_SECRETS", "client_secrets.json")
+    days = int(os.environ.get("GSC_DAYS", "7"))
+    min_impr = int(os.environ.get("GSC_MIN_IMPRESSIONS", "5"))
+
+    try:
+        if os.path.isfile(creds_path):
+            print(f"Auth Service Account : {creds_path}")
+            client = GSCClient.from_service_account(creds_path)
+        else:
+            print(f"Auth OAuth : {client_secrets}")
+            client = GSCClient.from_oauth(client_secrets)
+    except Exception as e:
+        print(f"Erreur d'authentification : {e}")
+        return
+
+    print(f"Sites accessibles : {client.list_sites()}")
+    print(f"Sync {site_url} (derniers {days} jours, min {min_impr} impressions)…")
+
+    try:
+        n = sync_to_tracker(
+            client,
+            site_url=site_url,
+            days=days,
+            min_impressions=min_impr,
+        )
+        print(f"✅ {n} positions enregistrées.")
+    except Exception as e:
+        print(f"Erreur sync : {e}")
+
+
 if __name__ == "__main__":
     init_db()
     # Quelques données de démo si la base est vide

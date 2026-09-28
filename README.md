@@ -11,21 +11,24 @@ Compatible avec **Appl'IA**, **Collégi'hein ?** et [appl-ia.fr](https://appl-ia
 - Évolution quotidienne
 - Alertes de hausse / baisse (seuil configurable)
 - Tableau de bord clair + graphique par mot-clé
-- Ajout manuel de positions (idéal en attendant l’API Search Console)
+- Ajout manuel de positions
+- **Sync automatique via Google Search Console API**
 
 ## Structure
 
 ```
 Google/
-│
-├── app.py
-├── database.db          # créé automatiquement
+├── app.py                 # Flask + CLI (init-db, sync-gsc)
+├── gsc_client.py          # Client Search Console (Service Account + OAuth)
+├── database.db            # créé automatiquement
 ├── templates/
 │   ├── index.html
 │   └── keyword.html
 ├── static/
 │   └── style.css
 ├── requirements.txt
+├── credentials.json       # (à créer) Service Account – ne pas committer
+├── client_secrets.json    # (à créer) OAuth – ne pas committer
 └── README.md
 ```
 
@@ -44,39 +47,65 @@ Ouvrez http://127.0.0.1:5000
 
 Des données de démo (Appl'IA, Collégi'hein, appl-ia.fr) sont injectées au premier lancement.
 
-## Utilisation
+## Utilisation manuelle
 
-1. **Ajouter un mot-clé** à suivre (optionnel, se fait aussi automatiquement).
-2. **Enregistrer une position** manuellement (mot-clé + position 1-100).
-3. Consulter le **tableau de bord** et les **alertes**.
-4. Cliquer sur un mot-clé pour voir l’**historique + graphique**.
+1. **Ajouter un mot-clé** à suivre
+2. **Enregistrer une position** manuellement (mot-clé + position 1-100)
+3. Consulter le **tableau de bord** et les **alertes**
+4. Cliquer sur un mot-clé pour voir l’**historique + graphique**
 
-## Passage pro : Google Search Console API
+## Sync Google Search Console
 
-Le scraping Google est interdit et fragile.  
-Pour un usage sérieux :
+### 1. Activer l’API
 
-1. Créez un projet Google Cloud + activez l’API Search Console.
-2. Créez un compte de service (ou OAuth) et liez-le à votre propriété Search Console.
-3. Utilisez la bibliothèque `google-api-python-client` pour récupérer les performances par requête.
-4. Remplacez l’ajout manuel par un job planifié (cron / Celery / APScheduler) qui appelle l’API et enregistre les positions via `save_position()`.
+1. [Google Cloud Console](https://console.cloud.google.com/) → créer un projet
+2. APIs & Services → Library → **Google Search Console API** → Enable
+3. Créer des credentials :
 
-Exemple de flux cible :
+**Option A – Service Account (recommandé pour cron)**
+- Credentials → Create credentials → Service account
+- Télécharger le JSON → renommer `credentials.json`
+- Dans Search Console → Paramètres → Utilisateurs → ajouter l’email du service account (droit « Complet »)
 
+**Option B – OAuth (desktop)**
+- Credentials → Create credentials → OAuth client ID → Desktop app
+- Télécharger → renommer `client_secrets.json`
+
+### 2. Lancer la synchronisation
+
+```bash
+# Service Account
+export GSC_SITE_URL="https://appl-ia.fr/"   # ou sc-domain:appl-ia.fr
+export GSC_CREDENTIALS="credentials.json"
+flask --app app sync-gsc
+
+# OAuth (premier lancement ouvre le navigateur)
+export GSC_SITE_URL="https://appl-ia.fr/"
+export GSC_CLIENT_SECRETS="client_secrets.json"
+flask --app app sync-gsc
 ```
-Google Search Console API
-        ↓
-  Collecte quotidienne
-        ↓
-     SQLite
-        ↓
-  Tableau de bord Flask + alertes
+
+Options supplémentaires :
+```bash
+export GSC_DAYS=14
+export GSC_MIN_IMPRESSIONS=10
+```
+
+### 3. Automatiser (cron)
+
+```bash
+# Tous les jours à 6h
+0 6 * * * cd /chemin/vers/Google && \
+  GSC_SITE_URL="https://appl-ia.fr/" \
+  GSC_CREDENTIALS="credentials.json" \
+  /chemin/venv/bin/flask --app app sync-gsc >> /var/log/seo-tracker.log 2>&1
 ```
 
 ## Notes
 
-- La base est purement locale (fichier `database.db`).
-- Changez `app.secret_key` en production.
-- Pour déployer : Gunicorn + reverse proxy (nginx) ou un PaaS (Render, Railway, etc.).
+- La base est purement locale (`database.db`)
+- Changez `app.secret_key` en production
+- Ne committez **jamais** `credentials.json`, `client_secrets.json` ni `token.json`
+- Pour déployer : Gunicorn + nginx, ou Render / Railway / Fly.io
 
 Bon suivi SEO !
